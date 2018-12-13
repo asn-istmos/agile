@@ -1,0 +1,217 @@
+#-------------------------------------------------------------------------------
+# Copyright (C) 2017 Resin.io, UNI Passau, FBK.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# https://www.eclipse.org/legal/epl-2.0/
+#
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     Resin.io, UNI Passau, FBK - initial API and implementation
+#-------------------------------------------------------------------------------
+version: '2'
+
+services:
+
+  agile-dbus:
+    container_name: agile-dbus
+    image: agileiot/agile-dbus-armv7l:v0.1.4
+    restart: always
+    volumes:
+      - agile-dbus-dir:/usr/src/app/.agile_bus
+  
+  protocol-apps:
+    build: ./apps
+    depends_on:
+      - agile-dbus
+    volumes:
+      - agile-dbus-dir:/usr/src/app/.agile_bus
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/usr/src/app/.agile_bus/agile_bus_socket"s
+    restart: always
+    privileged: true
+  
+  agile-makers-shield-software:
+    build: https://github.com/Agile-IoT/agile-makers-shield-software.git
+    depends_on:
+      - agile-dbus
+    volumes:
+      - agile-dbus-dir:/usr/src/app/.agile_bus
+      - agile-data-core-plugins:/usr/src/app/plugins 
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/usr/src/app/.agile_bus/agile_bus_socket"
+
+    restart: always
+    privileged: true
+
+    
+  agile-devicemanager:
+    command: [ "bash", "/usr/src/app/scripts/start.sh", "DeviceManager" ]
+    image: agileiot/agile-core-armv7l:v0.2.22
+    depends_on:
+      - agile-dbus
+    volumes:
+      - agile-dbus-dir:/usr/src/app/.agile_bus
+      - agile-data-core-plugins:/usr/src/app/plugins
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/usr/src/app/.agile_bus/agile_bus_socket"
+    restart: always
+    privileged: true
+
+  agile-protocolmanager:
+    command: [ "bash", "/usr/src/app/scripts/start.sh", "ProtocolManager" ]
+    image: agileiot/agile-core-armv7l:v0.2.22
+    depends_on:
+      - agile-dbus
+    volumes:
+      - agile-dbus-dir:/usr/src/app/.agile_bus
+      - agile-data-core-plugins:/usr/src/app/plugins
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/usr/src/app/.agile_bus/agile_bus_socket"
+    restart: always
+    privileged: true
+
+  agile-devicefactory:
+    command: [ "bash", "/usr/src/app/scripts/start.sh", "DeviceFactory" ]
+    image: agileiot/agile-core-armv7l:v0.2.22
+    depends_on:
+      - agile-dbus
+    volumes:
+      - agile-dbus-dir:/usr/src/app/.agile_bus
+      - agile-data-core-plugins:/usr/src/app/plugins
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/usr/src/app/.agile_bus/agile_bus_socket"
+    restart: always
+    privileged: true
+
+  agile-core:
+    command: [ "bash", "/usr/src/app/scripts/start.sh", "http" ]
+    image: agileiot/agile-core-armv7l:v0.2.22
+    #build: apps/agile-core
+    depends_on:
+      - agile-dbus
+      - agile-devicemanager
+      - agile-devicefactory
+      - agile-protocolmanager
+    volumes:
+      - agile-dbus-dir:/usr/src/app/.agile_bus
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/usr/src/app/.agile_bus/agile_bus_socket"
+    ports:
+      - 8080:8080/tcp
+    restart: always
+    privileged: true
+
+    
+  agile-ble:
+    image: agileiot/agile-ble-armv7l:v0.1.15
+    depends_on:
+      - agile-dbus
+    volumes:
+      - agile-dbus-dir:/usr/src/app/.agile_bus
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/usr/src/app/.agile_bus/agile_bus_socket"
+      DBUS_SYSTEM_BUS_ADDRESS: "unix:path=/host/run/dbus/system_bus_socket"
+    restart: always
+    privileged: true
+    network_mode: "host"
+    labels:
+      io.resin.features.kernel-modules: '1'
+      io.resin.features.firmware: '1'
+      io.resin.features.dbus: '1'
+    command: bash -c "mkdir -p /var/run/dbus && rm -f /var/run/dbus/pid && dbus-daemon --system && hciconfig hci0 down && hciconfig hci0 up && /usr/local/libexec/bluetooth/bluetoothd -E & scripts/start.sh BLE"
+
+  agile-dummy:
+    image: agileiot/agile-dummy-armv7l:v0.3.3
+    depends_on:
+      - agile-dbus
+    volumes:
+      - agile-dbus-dir:/usr/src/app/.agile_bus
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/usr/src/app/.agile_bus/agile_bus_socket"
+    restart: always
+
+  agile-istmos:
+    image: agileiot/agile-dummy-armv7l:v0.3.3
+    depends_on:
+      - agile-dbus
+    volumes:
+      - agile-dbus-dir:/usr/src/app/.agile_bus
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/usr/src/app/.agile_bus/agile_bus_socket"
+    restart: always
+
+    agile-ui:
+    image: agileiot/agile-ui-armv7l:v2.5.2
+    restart: always
+    depends_on:
+      - agile-core
+    ports:
+      - 2000:1337/tcp
+
+  agile-osjs:
+    image: agileiot/agile-osjs-armv7l:v0.4.1
+    depends_on:
+      - agile-core
+      - agile-security
+    environment:
+      - AGILE_HOST=$AGILE_HOST
+    ports:
+      - "8000:8000/tcp"
+    links:
+      - agile-core:agile
+    restart: always
+    command: bash -c 'if [ -z "$AGILE_HOST" -a -n "$RESIN_DEVICE_UUID" ]; then export AGILE_HOST="${RESIN_DEVICE_UUID:0:7}.local"; ./start.sh; else ./start.sh; fi'
+
+  agile-nodered:
+    image: agileiot/agile-nodered-armv7l:v0.4.3
+    hostname: agile-nodered
+    volumes:
+      - agile-data-nodered:/opt/secure-nodered/.nodered/
+    ports:
+      - 1880:1880/tcp
+    links:
+      - agile-core:agile
+    restart: always
+
+  agile-security:
+    image: agileiot/agile-security-armv7l:v3.8.0
+    hostname: agile-security
+    volumes:
+      - agile-data-security-idm-conf:/root/idm.conf
+      - agile-data-security-idm-conf:/root/idm.db
+    environment:
+      - DOCKER_CONF=/root/idm.conf
+      - AGILE_HOST=$AGILE_HOST
+    ports:
+      - 3000:3000/tcp
+      - 1444:1444/tcp
+      - 1443:1443/tcp
+    restart: always
+    command: bash -c 'if [ -z "$AGILE_HOST" -a -n "$RESIN_DEVICE_UUID" ]; then export AGILE_HOST="${RESIN_DEVICE_UUID:0:7}.local"; ./Start.sh; else ./Start.sh; fi'
+
+  agile-data:
+    image: agileiot/agile-data-armv7l:v0.2.1
+    hostname: agile-data
+    restart: always
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - agile-security
+      - agile-core
+    ports:
+      - 1338:1338/tcp
+
+  agile-recommender:
+    image: agileiot/agile-recommender-armv7l:v0.3.8
+    hostname: agile-recommender
+    restart: always
+    ports:
+      - 8090:8090/tcp
+
+volumes:
+  agile-data-core-plugins:
+  agile-data-nodered:
+  agile-data-security-idm-conf:
+  agile-dbus-dir:

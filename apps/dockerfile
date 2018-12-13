@@ -41,9 +41,8 @@ COPY sodaq.h sodaq.h
 
 ENV INITSYSTEM on
 
-CMD ["/bin/bash"
+CMD ["/bin/bash"]
 
 # Customise and compile
 
-# Enable OpenRC
-]
+

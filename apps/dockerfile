@@ -34,23 +34,16 @@ RUN apt-get update && apt-get install -y \
 ENV LD_LIBRARY_PATH=/libs
 ENV CPLUS_INCLUDE_PATH=/libs/include
 
-RUN mkdir /src
-RUN mkdir /build
-WORKDIR /build
 
+COPY LoRaWAN_P2P_send_packets_DHT22.cpp LoRaWAN_P2P_send_packets_DHT22.cpp
+COPY NB_IoT.cpp NB_IoT.cpp
+COPY sodaq.h sodaq.h
 
-
-
-
-COPY index.js index.js
-COPY build.sh build.sh
-COPY start.sh start.sh
-
-
-
-# COPY . .
-
-# Enable OpenRC
 ENV INITSYSTEM on
 
-CMD ["/bin/bash"]
+CMD ["/bin/bash"
+
+# Customise and compile
+
+# Enable OpenRC
+]
